@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataSplitter", "DataSplitte
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SSHMonitor", "SSHMonitor\SSHMonitor.csproj", "{5A8DE2DD-9CD6-4BFC-ABAD-4B2B34987133}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnTheHouseTests", "OnTheHouseTests\OnTheHouseTests.csproj", "{00C6994E-E245-4C6F-ABEF-38C869F41253}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{5A8DE2DD-9CD6-4BFC-ABAD-4B2B34987133}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5A8DE2DD-9CD6-4BFC-ABAD-4B2B34987133}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5A8DE2DD-9CD6-4BFC-ABAD-4B2B34987133}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00C6994E-E245-4C6F-ABEF-38C869F41253}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00C6994E-E245-4C6F-ABEF-38C869F41253}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00C6994E-E245-4C6F-ABEF-38C869F41253}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00C6994E-E245-4C6F-ABEF-38C869F41253}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

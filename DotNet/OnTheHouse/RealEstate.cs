@@ -4,8 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium;
+using HtmlAgilityPack;
+using System.Net;
+using System.Text.RegularExpressions;
+using System.Net.Http;
+using Newtonsoft.Json;
 
 namespace OnTheHouse
 {
@@ -13,118 +16,193 @@ namespace OnTheHouse
     {
         public static string baseUrl = @"https://www.realestate.com.au/property/";
 
-        public static SearchResult SearchRealEstate(this ChromeDriver chromeDriver, Property property)
+
+        public static SearchResult SearchRealEstate(Property property)
         {
             var address = property.BuildRealEstateAddress();
 
-            chromeDriver.Url = $@"{baseUrl}{address}";
+            return SearchRealEstate(address);
+        }
 
-            chromeDriver.Navigate();
+        public static SearchResult SearchRealEstate(string path)
+        {
+            var url = $@"{baseUrl}{path}";
 
             SearchResult result = new SearchResult();
 
-            if (chromeDriver.Url == @"https://www.realestate.com.au/property")
+            using (HttpClient baseHttpClient = new HttpClient())
             {
-                // invalid address
-                result.InvalidAddress = true;
-                return result;
-            }
+
+                baseHttpClient.BaseAddress = new Uri(@"https://www.realestate.com.au/property/");
+
+                baseHttpClient.DefaultRequestHeaders.Add("user-agent", " Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36");
 
 
-            var noHistory = chromeDriver.TryFindElementByCss("p.property-timeline__no-event__highlight");
+                var response = baseHttpClient.GetAsync(path).GetAwaiter().GetResult();
+                var html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
 
+                HtmlDocument document = new HtmlDocument();
+                document.LoadHtml(html);
 
-            chromeDriver.TryFindElementByCss("div.property-timeline__collapse-button")?
-                .TryFindElementByCss("button")?
-                .Click();
+                // Property Value and Property Market Data - realestate.com.au
 
-            // find history 
+                var title = document.DocumentNode.DescendantsAndSelf().Where(n => n.Name == "title").FirstOrDefault();
 
-            var dataHistory = new List<HouseHistory>();
-
-            var historyEntries = chromeDriver.FindElementsByCssSelector("div.property-timeline__item-content");
-
-            if (historyEntries.Any())
-                foreach (var historyCard in historyEntries)
+                if (title != null && title.InnerText == "Property Value and Property Market Data - realestate.com.au")
                 {
-                    var rentLabel = historyCard.TryFindElementByCss("span.property-timeline__label.property-timeline__label--rent");
-                    var soldLabel = historyCard.TryFindElementByCss("span.property-timeline__label.property-timeline__label--sold");
+                    result.InvalidAddress = true;
+                    return result;
+                }
 
-                    //property-timeline__price
-                    var price = historyCard.TryFindElementByCss("div.property-timeline__price");
-                    //property-timeline__date
-                    var date = historyCard.TryFindElementByCss("span.property-timeline__date");
+                var property_info = document.DocumentNode.DescendantsAndSelf()
+                    .Where(n => n.Name.ToLower() == "div" && n.HasClass("property-info__attributes"))
+                    .FirstOrDefault();
 
-                    if (rentLabel != null)
+                if (property_info != null)
+                {
+                    var bedrooms = property_info.DescendantsAndSelf()
+                        .Where(n => n.HasClass("rui-property-feature") && n.DescendantsAndSelf().Any(c => c.InnerText == "Bedrooms"))
+                        .FirstOrDefault();
+                    if (bedrooms != null)
                     {
-                        dataHistory.Add(new HouseHistory()
-                        {
-                            Action = "Rent",
-                            Date = date.Text,
-                            Value = price.Text
-                        });
+                        var num = bedrooms.DescendantsAndSelf().Where(n => n.HasClass("config-num")).FirstOrDefault();
+                        result.Bedroom = num.InnerText;
                     }
-                    else if (soldLabel != null)
+
+                    var bathrooms = property_info.DescendantsAndSelf()
+                        .Where(n => n.HasClass("rui-property-feature") && n.DescendantsAndSelf().Any(c => c.InnerText == "Bathrooms"))
+                        .FirstOrDefault();
+                    if (bathrooms != null)
                     {
-                        dataHistory.Add(new HouseHistory()
-                        {
-                            Action = "Sold",
-                            Date = date.Text,
-                            Value = price.Text
-                        });
+                        var num = bathrooms.DescendantsAndSelf().Where(n => n.HasClass("config-num")).FirstOrDefault();
+                        result.Bathroom = num.InnerText;
+                    }
+
+                    var carspaces = property_info.DescendantsAndSelf()
+                        .Where(n => n.HasClass("rui-property-feature") && n.DescendantsAndSelf().Any(c => c.InnerText == "Car Spaces"))
+                        .FirstOrDefault();
+                    if (carspaces != null)
+                    {
+                        var num = carspaces.DescendantsAndSelf().Where(n => n.HasClass("config-num")).FirstOrDefault();
+                        result.Parking = num.InnerText;
                     }
                 }
 
-            result.Data = dataHistory;
+                Regex rgxPrediction = new Regex(@"{""confidence"":""\w+"",""range"":{""text"":""(\$[\d,]+ *- *\$[\d,]+)""}}");
 
-            // value range
-            var summary = chromeDriver.TryFindElementByCss("div.property-summary");
-            if(summary != null)
-            {
-                var attributes = summary.TryFindElementByCss("div.property-details").TryFindElementByCss("div.property-info").TryFindElementByCss("div.property-info__attributes");
-                if (attributes != null)
+                var predictionMatch = rgxPrediction.Match(html);
+                if (predictionMatch.Success)
                 {
-                    var atts = attributes.TryFindElementsByCss("span.rui-property-feature");
-                    if(atts.Count == 3)
+                    result.ValueRange = predictionMatch.Groups[1].Value;
+                }
+
+                Regex rgxPropertyId = new Regex(@"\/property\/purchase_title\/(\d+)");
+
+                var propertyIdMatch = rgxPropertyId.Match(html);
+                if (predictionMatch.Success)
+                {
+                    // query the history
+                    string propertyId = propertyIdMatch.Groups[1].Value;
+
+                    string baseQueryUrl = @"https://pexa.realestate.com.au/graphql?query={property(propertyId:%22" +
+                        propertyId +
+                        "%22){id,propertyTimeline{date,agency,eventType,price}}}";
+
+                    using (HttpClient httpClient = new HttpClient())
                     {
-                        result.Bedroom = atts[0].TryFindElementByCss("span.config-num")?.Text;
-                        result.Bathroom = atts[1].TryFindElementByCss("span.config-num")?.Text;
-                        result.Parking = atts[2].TryFindElementByCss("span.config-num")?.Text;
+                        httpClient.DefaultRequestHeaders.Referrer = new Uri(url);
+                        httpClient.DefaultRequestHeaders.Add("user-agent", " Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36");
+
+                        var jsonHistory = httpClient.GetStringAsync(baseQueryUrl).GetAwaiter().GetResult();
+
+                        // use http://json2csharp.com/ to generate the C# object from json
+                        var history = JsonConvert.DeserializeObject<HistoryObject>(jsonHistory);
+
+                        var timeline = history?.data?.property?.propertyTimeline;
+
+                        if (timeline != null)
+                        {
+                            result.Data = timeline.Select(ev =>
+                            {
+                                return new HouseHistory()
+                                {
+                                    Action = ev.eventType,
+                                    Date = ev.date,
+                                    Value = ev.price,
+                                    Agent = ev.agency
+                                };
+                            }).ToList();
+                        }
                     }
                 }
 
-                result.ValueRange = summary.TryFindElementByCss("p.avm-price__estimate")?.Text;
-            }
+                var propertyDetails = document.DocumentNode.DescendantsAndSelf()
+                    .Where(
+                    n => n.Name == "div" && 
+                    n.HasClass("property-details") &&
+                    n.DescendantsAndSelf().Any(
+                        t =>
+                        t.Name == "table" && t.HasClass("info-table")
+                        )).FirstOrDefault();
 
-            // details;
-
-            var detailTable = chromeDriver.FindElementsByCssSelector("div.property-details")?
-                .Where(div => div.TryFindElementByCss("table.info-table") != null)?.FirstOrDefault();
-
-            if(detailTable != null)
-            {
-                foreach(var row in detailTable.TryFindElementsByCss("tr"))
+                if (propertyDetails != null)
                 {
-                    var cells =  row.TryFindElementsByCss("td");
-                    if(cells != null && cells.Count == 2)
+                    var propertyInfoTable = propertyDetails.DescendantsAndSelf().Where(n => n.Name == "table" && n.HasClass("info-table")).FirstOrDefault();
+                    if (propertyInfoTable != null)
                     {
-                        switch (cells[0].Text)
+                        var propertyInfoTableBody = propertyInfoTable.DescendantsAndSelf().Where(n => n.Name == "tbody").FirstOrDefault();
+                        if (propertyInfoTableBody != null)
                         {
-                            case "Land size":
-                                result.LandSize = cells[1].Text;
-                                break;
-                            case "Floor area":
-                                result.FloorArea = cells[1].Text;
-                                break;
-                            case "Year built":
-                                result.YearBuilt = cells[1].Text;
-                                break;
+                            var propertyInfoRows = propertyInfoTableBody.DescendantsAndSelf().Where(n => n.Name == "tr").ToList();
+
+                            foreach (var infoRow in propertyInfoRows)
+                            {
+                                var label = infoRow.Descendants().First(n => n.Name == "td").InnerText.ToLower();
+                                var value = infoRow.Descendants().Last(n => n.Name == "td").InnerText;
+                                switch (label)
+                                {
+                                    case "land size":
+                                        result.LandSize = value;
+                                        break;
+                                    case "floor area":
+                                        result.FloorArea = value;
+                                        break;
+                                    case "year built":
+                                        result.YearBuilt = value;
+                                        break;
+                                }
+                            }
                         }
                     }
                 }
             }
-
             return result;
         }
+    }
+
+
+    // the following data is used to deserialize the json from realestate;
+    public class PropertyTimeline
+    {
+        public string date { get; set; }
+        public string agency { get; set; }
+        public string eventType { get; set; }
+        public string price { get; set; }
+    }
+
+    public class HistoryProperty
+    {
+        public string id { get; set; }
+        public List<PropertyTimeline> propertyTimeline { get; set; }
+    }
+
+    public class HistoryData
+    {
+        public HistoryProperty property { get; set; }
+    }
+
+    public class HistoryObject
+    {
+        public HistoryData data { get; set; }
     }
 }

@@ -8,7 +8,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using OpenQA.Selenium.Chrome;
 
 namespace OnTheHouse
 {

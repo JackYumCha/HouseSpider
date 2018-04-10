@@ -64,6 +64,7 @@ namespace OnTheHouse
         public string Action { get; set; } //sold rent
         public string Date { get; set; }
         public string Value { get; set; }
+        public string Agent { get; set; }
     }
 
     public class SearchResult
@@ -81,6 +82,7 @@ namespace OnTheHouse
         public string Bedroom { get; set; }
         public string Bathroom { get; set; }
         public string Parking { get; set; }
+        public string RentPerWeek { get; set; }
 
         public List<HouseHistory> Data { get; set; }
     }
