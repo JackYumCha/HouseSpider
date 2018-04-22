@@ -3,11 +3,11 @@ using System.Linq;
 using System.Diagnostics;
 using System.Collections.Generic;
 using CsvHelper;
-using HouseDataImport;
 using System.IO;
 using System.IO.Compression;
 using Xunit;
 using Newtonsoft.Json;
+using OnTheHouse;
 
 namespace DataSplitterTests
 {
@@ -17,7 +17,11 @@ namespace DataSplitterTests
         [Fact(DisplayName = "Data.CreatePackage")]
         public void CreatePackage()
         {
-            var postcodes = new int[] { 4000, 4005, 4006, 4059, 4064, 4066, 4067, 4068, 4101, 4102, 4169, 4109, 4108, 4122, 4113, 4123, 4119, 4112, 4113, 4116, 4115, 4121 };
+            //var postcodes = new int[] { 4000, 4005, 4006, 4059, 4064, 4066, 4067, 4068, 4101, 4102, 4169, 4109, 4108, 4122, 4113,
+            // 4123, 4119, 4112, 4113, 4116, 4115, 4121 };
+
+            var postcodes = new int[] { 4110, 4117, 4119, 4127, 4128 };
+
 
             var numberOfSpiders = 15;
 
@@ -80,7 +84,14 @@ namespace DataSplitterTests
         [Fact(DisplayName = "Generate Per Postcode List")]
         public void GetHousesPerPostcode()
         {
-            var postcodes = new int[] { 4000, 4005, 4006, 4059, 4064, 4066, 4067, 4068, 4101, 4102, 4169, 4109, 4108, 4122, 4113, 4123, 4119, 4112, 4113, 4116, 4115, 4121 };
+            var downloaded = new int[] {
+                4000, 4005, 4006, 4059, 4064, 4066, 4067, 4068, 4101, 4102, 4169, 4109,
+                4108, 4122, 4113, 4123, 4119, 4112, 4113, 4116, 4115, 4121 };
+
+
+            var postcodes = new List<int> { 4151, 4121, 4117, 4114, 4118, 4132, 4131, 4110, 4067, 4069, 4073, 4074, 4078 };
+
+            postcodes.Except(downloaded);
 
             foreach(var postcode in postcodes)
             {
@@ -110,7 +121,7 @@ namespace DataSplitterTests
 
         public List<Property> ReadPostcode(string postcode)
         {
-            string csvAddress = $@"{AppContext.BaseDirectory}\..\..\..\..\..\PropertyLocations\20171215000odaddress.csv";
+            string csvAddress = $@"D:\VSTS\Repos\Machine Learning Lecture\Spider\PropertyLocations\20171215000odaddress.csv";
 
             List<Property> properties = new List<Property>();
 
