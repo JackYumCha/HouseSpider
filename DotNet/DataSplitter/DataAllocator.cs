@@ -161,7 +161,6 @@ namespace DataSplitterTests
                     }
                 }
             }
-
             return properties;
         }
 
