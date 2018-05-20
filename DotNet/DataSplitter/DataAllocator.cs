@@ -121,6 +121,9 @@ namespace DataSplitterTests
 
         public List<Property> ReadPostcode(string postcode)
         {
+
+
+
             string csvAddress = $@"D:\VSTS\Repos\Machine Learning Lecture\Spider\PropertyLocations\20171215000odaddress.csv";
 
             List<Property> properties = new List<Property>();
@@ -156,12 +159,75 @@ namespace DataSplitterTests
 
                         prop.BuildKey();
 
-                        if(prop.Postcode == postcode)
+                        if (prop.Postcode == postcode)
                             properties.Add(prop);
                     }
                 }
             }
             return properties;
+        }
+
+        [Fact(DisplayName = "Read All the Rest Postcodes for Downloads")]
+        public void ReadAllPostCodes()
+        {
+            var downloaded = new int[] {
+                4000, 4005, 4006, 4059, 4064, 4066, 4067, 4068, 4101, 4102, 4169, 4109,
+                4108, 4122, 4113, 4123, 4119, 4112, 4113, 4116, 4115, 4121, 4151, 4121,
+                4117, 4114, 4118, 4132, 4131, 4110, 4067, 4069, 4073, 4074, 4078};
+
+            HashSet<string> downloadedPostcodes = new HashSet<string>();
+
+            foreach (int i in downloaded)
+            {
+                downloadedPostcodes.Add(i.ToString());
+            }
+
+            string csvAddress = $@"D:\VSTS\Repos\Machine Learning Lecture\Spider\PropertyLocations\20171215000odaddress.csv";
+
+            List<Property> properties = new List<Property>();
+
+
+            using (TextReader text = new StreamReader(csvAddress))
+            {
+                using (var csv = new CsvReader(text))
+                {
+                    csv.Configuration.BadDataFound = null;
+
+
+                    while (csv.Read())
+                    {
+                        var row = csv.GetRecord<dynamic>();
+
+                        var dict = row as IDictionary<string, object>;
+
+                        // var doc = string.Join("\n", dict.Keys.Select(key => $"prop. = dict[\"{key}\"];"));
+
+                        var prop = new Property();
+
+                        prop.UnitNumber = dict["UNIT NUMBER"] as string;
+                        prop.HouseNumber = dict["HOUSE NUMBER"] as string;
+                        prop.StreetName = dict["STREET NAME"] as string;
+                        prop.StreetType = dict["STREET TYPE"] as string;
+                        prop.StreetSuffix = dict["STREET SUFFIX"] as string;
+                        prop.Suburb = dict["SUBURB"] as string;
+                        prop.Postcode = dict["POSTCODE"] as string;
+                        prop.AddressUseType = dict["ADDRESS USE TYPE"] as string;
+                        prop.WardName = dict["WARD NAME"] as string;
+                        prop.PropertyDescription = dict["PROPERTY DESCRIPTION"] as string;
+
+                        prop.BuildKey();
+
+                        if (downloadedPostcodes.Contains(prop.Postcode))
+                        {
+                            properties.Add(prop);
+                        }
+
+                        //if (prop.Postcode == postcode)
+                        //    properties.Add(prop);
+                    }
+                }
+            }
+            // return properties;
         }
 
         [Fact(DisplayName = "Remove Downloaded From List")]
